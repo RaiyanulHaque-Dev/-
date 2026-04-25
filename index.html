@@ -150,6 +150,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (saved) document.getElementById('apiUrl').value = saved;
 });
 
+// ── Save API URL
 function saveApiUrl() {
   const url = document.getElementById('apiUrl').value.trim();
   if (!url) return showToast('Please enter a valid URL');
@@ -162,6 +163,7 @@ function handlePaymentChange() {
   const method = document.getElementById('paymentMethod').value;
   const grp = document.getElementById('txnIdGroup');
   const txn = document.getElementById('transactionId');
+
   if (['bKash','Nagad','Bank Transfer'].includes(method)) {
     grp.style.display = 'flex';
     txn.required = true;
@@ -226,23 +228,38 @@ document.getElementById('receiptForm').addEventListener('submit', async (e) => {
     const res = await fetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'create', ...data }),
-      mode: 'no-cors' // Apps Script requires this
+      body: JSON.stringify({ action: 'create', ...data })
     });
 
-    // With no-cors we can't read the response, so trust the request went through
-    // Store the receipt data locally to pass to receipt.html
-    sessionStorage.setItem('smt_receipt', JSON.stringify(data));
-    window.location.href = 'receipt.html';
+    const result = await res.json();
+
+    if (result.status === 'SUCCESS') {
+      showToast('✅ Receipt created successfully');
+
+      // Store receipt for next page
+      sessionStorage.setItem('smt_receipt', JSON.stringify({
+        ...data,
+        receiptId: result.receiptId
+      }));
+
+      setTimeout(() => {
+        window.location.href = 'receipt.html';
+      }, 1000);
+
+    } else {
+      throw new Error(result.message);
+    }
 
   } catch (err) {
+    console.error(err);
+    showToast('❌ ' + err.message);
+
     btn.disabled = false;
     btn.innerHTML = 'Generate Receipt →';
-    showToast('❌ Failed to save. Check your API URL.');
-    console.error(err);
   }
 });
 
+// ── Toast
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -250,6 +267,5 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 3500);
 }
 </script>
-
 </body>
 </html>
