@@ -4,42 +4,31 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Admin Panel — SMT Receipt System</title>
+
 <link rel="stylesheet" href="style.css" />
+
 <style>
-  .setup-notice {
-    background: #fff3cd;
-    border: 1.5px solid #ffc107;
-    border-radius: 4px;
-    padding: 1.2rem 1.5rem;
-    margin-bottom: 1.5rem;
-    font-size: 0.85rem;
-    color: #664d00;
-  }
-  .setup-notice strong { display: block; margin-bottom: 0.4rem; font-size: 0.9rem; }
-  .setup-notice code {
-    background: rgba(0,0,0,0.08);
-    padding: 0.15rem 0.4rem;
-    border-radius: 2px;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.82rem;
-  }
-  .config-row {
-    display: flex;
-    gap: 0.75rem;
-    margin-bottom: 1.5rem;
-  }
-  .config-row input {
-    flex: 1;
-    border: 1.5px solid #ffc107;
-    border-radius: 3px;
-    padding: 0.6rem 0.9rem;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.82rem;
-    background: #fffdf0;
-  }
-  .config-row input:focus { outline: none; border-color: var(--accent); }
-  #txnIdGroup { display: none; }
+.setup-notice {
+  background: #fff3cd;
+  border: 1.5px solid #ffc107;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.85rem;
+  color: #664d00;
+}
+.config-row {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+.config-row input {
+  flex: 1;
+  padding: 0.6rem;
+}
+#txnIdGroup { display: none; }
 </style>
+
 </head>
 <body>
 
@@ -52,88 +41,78 @@
 </header>
 
 <div class="page-wrap">
-  <h1 class="page-title">Generate Receipt</h1>
-  <p class="page-sub">// admin panel — authorized personnel only</p>
 
-  <!-- ── Setup Notice ── -->
+  <h1 class="page-title">Generate Receipt</h1>
+  <p class="page-sub">Admin Panel</p>
+
   <div class="setup-notice">
-    <strong>⚙️ First-time Setup Required</strong>
-    Paste your Google Apps Script Web App URL below before generating receipts.
-    Deploy your Apps Script as a <code>Web App</code> with access set to <em>Anyone</em>.
+    Paste your Apps Script URL below first.
   </div>
 
   <div class="config-row">
-    <input type="url" id="apiUrl" placeholder="https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec" />
-    <button class="btn btn-outline" onclick="saveApiUrl()">Save URL</button>
+    <input type="url" id="apiUrl" placeholder="Paste API URL here">
+    <button class="btn btn-outline" onclick="saveApiUrl()">Save</button>
   </div>
 
-  <!-- ── Form ── -->
   <div class="card">
     <form id="receiptForm">
+
       <div class="form-grid">
 
         <div class="form-group">
-          <label>Member Name *</label>
-          <input type="text" id="memberName" placeholder="Full name" required />
+          <label>Name</label>
+          <input id="memberName" required>
         </div>
 
         <div class="form-group">
-          <label>Phone Number *</label>
-          <input type="tel" id="phone" placeholder="01XXXXXXXXX" required />
+          <label>Phone</label>
+          <input id="phone" required>
         </div>
 
         <div class="form-group">
-          <label>Amount (BDT) *</label>
-          <input type="number" id="amount" placeholder="0.00" min="1" required />
+          <label>Amount</label>
+          <input type="number" id="amount" required>
         </div>
 
         <div class="form-group">
-          <label>Payment Method *</label>
+          <label>Payment</label>
           <select id="paymentMethod" onchange="handlePaymentChange()" required>
-            <option value="">— Select —</option>
-            <option value="Cash">Cash</option>
-            <option value="bKash">bKash</option>
-            <option value="Nagad">Nagad</option>
-            <option value="Bank Transfer">Bank Transfer</option>
+            <option value="">Select</option>
+            <option>Cash</option>
+            <option>bKash</option>
+            <option>Nagad</option>
+            <option>Bank Transfer</option>
           </select>
         </div>
 
         <div class="form-group" id="txnIdGroup">
-          <label>Transaction ID *</label>
-          <input type="text" id="transactionId" placeholder="TXN reference number" />
+          <label>Transaction ID</label>
+          <input id="transactionId">
         </div>
 
         <div class="form-group">
-          <label>Purpose *</label>
-          <select id="purpose" required>
-            <option value="">— Select —</option>
-            <option value="Monthly Deposit">Monthly Deposit</option>
-            <option value="Fine">Fine</option>
-            <option value="Registration Fee">Registration Fee</option>
-            <option value="Event Fee">Event Fee</option>
-            <option value="Others">Others</option>
-          </select>
+          <label>Purpose</label>
+          <input id="purpose" required>
         </div>
 
         <div class="form-group">
-          <label>Admin / Created By *</label>
-          <input type="text" id="createdBy" placeholder="Your name" required />
+          <label>Created By</label>
+          <input id="createdBy" required>
         </div>
 
         <div class="form-group">
-          <label>Admin Notes (optional)</label>
-          <input type="text" id="notes" placeholder="Any remarks..." />
+          <label>Notes</label>
+          <input id="notes">
         </div>
 
       </div>
 
-      <div class="divider"></div>
+      <br>
 
-      <div style="display:flex; justify-content:flex-end;">
-        <button type="submit" class="btn btn-primary" id="submitBtn">
-          Generate Receipt →
-        </button>
-      </div>
+      <button id="submitBtn" class="btn btn-primary">
+        Generate Receipt →
+      </button>
+
     </form>
   </div>
 
@@ -144,128 +123,103 @@
 <script>
 const STORAGE_KEY = 'smt_api_url';
 
-// ── Load saved API URL
+// Load saved API URL
 window.addEventListener('DOMContentLoaded', () => {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) document.getElementById('apiUrl').value = saved;
 });
 
-// ── Save API URL
+// Save API
 function saveApiUrl() {
   const url = document.getElementById('apiUrl').value.trim();
-  if (!url) return showToast('Please enter a valid URL');
+  if (!url) return showToast('Enter API URL');
   localStorage.setItem(STORAGE_KEY, url);
-  showToast('API URL saved ✓');
+  showToast('Saved ✓');
 }
 
-// ── Toggle Transaction ID field
+// Payment toggle
 function handlePaymentChange() {
   const method = document.getElementById('paymentMethod').value;
   const grp = document.getElementById('txnIdGroup');
-  const txn = document.getElementById('transactionId');
 
-  if (['bKash','Nagad','Bank Transfer'].includes(method)) {
-    grp.style.display = 'flex';
-    txn.required = true;
+  if (method === 'bKash' || method === 'Nagad' || method === 'Bank Transfer') {
+    grp.style.display = 'block';
   } else {
     grp.style.display = 'none';
-    txn.required = false;
-    txn.value = '';
   }
 }
 
-// ── Generate unique receipt ID
+// Generate ID
 function generateReceiptId() {
-  const year = new Date().getFullYear();
-  const seq = String(Math.floor(Math.random() * 9000) + 1000);
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const rand = Array.from({length:4}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
-  return `SMT-${year}-${seq}-${rand}`;
+  return 'SMT-' + Date.now();
 }
 
-// ── Format date/time
+// Get time
 function getNow() {
   const now = new Date();
-  const date = now.toLocaleDateString('en-BD', {year:'numeric', month:'long', day:'numeric'});
-  const time = now.toLocaleTimeString('en-BD', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
-  return { date, time, iso: now.toISOString() };
+  return {
+    date: now.toLocaleDateString(),
+    time: now.toLocaleTimeString()
+  };
 }
 
-// ── Form submit
+// Submit form
 document.getElementById('receiptForm').addEventListener('submit', async (e) => {
   e.preventDefault();
 
-  const apiUrl = localStorage.getItem(STORAGE_KEY) || document.getElementById('apiUrl').value.trim();
-  if (!apiUrl) {
-    showToast('⚠ Please save your API URL first');
-    return;
-  }
+  const apiUrl = localStorage.getItem(STORAGE_KEY);
+  if (!apiUrl) return showToast('Save API URL first');
 
   const btn = document.getElementById('submitBtn');
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Saving...';
+  btn.innerText = 'Saving...';
 
-  const { date, time, iso } = getNow();
-  const receiptId = generateReceiptId();
+  const { date, time } = getNow();
 
   const data = {
-    receiptId,
-    memberName: document.getElementById('memberName').value.trim(),
-    phone: document.getElementById('phone').value.trim(),
-    amount: document.getElementById('amount').value,
-    paymentMethod: document.getElementById('paymentMethod').value,
-    transactionId: document.getElementById('transactionId').value.trim() || 'N/A',
-    purpose: document.getElementById('purpose').value,
+    receiptId: generateReceiptId(),
+    memberName: memberName.value,
+    phone: phone.value,
+    amount: amount.value,
+    paymentMethod: paymentMethod.value,
+    transactionId: transactionId.value || 'N/A',
+    purpose: purpose.value,
     date,
     time,
-    iso,
-    status: 'VERIFIED',
-    createdBy: document.getElementById('createdBy').value.trim(),
-    notes: document.getElementById('notes').value.trim(),
+    createdBy: createdBy.value,
+    notes: notes.value
   };
 
   try {
-    const res = await fetch(apiUrl, {
+    await fetch(apiUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'create', ...data })
+      body: JSON.stringify({ action: 'create', ...data }),
+      mode: 'no-cors'
     });
 
-    const result = await res.json();
+    showToast('Receipt Saved ✓');
 
-    if (result.status === 'SUCCESS') {
-      showToast('✅ Receipt created successfully');
+    sessionStorage.setItem('receipt', JSON.stringify(data));
 
-      // Store receipt for next page
-      sessionStorage.setItem('smt_receipt', JSON.stringify({
-        ...data,
-        receiptId: result.receiptId
-      }));
-
-      setTimeout(() => {
-        window.location.href = 'receipt.html';
-      }, 1000);
-
-    } else {
-      throw new Error(result.message);
-    }
+    setTimeout(() => {
+      window.location.href = 'receipt.html';
+    }, 1000);
 
   } catch (err) {
-    console.error(err);
-    showToast('❌ ' + err.message);
-
+    showToast('Error saving');
     btn.disabled = false;
-    btn.innerHTML = 'Generate Receipt →';
+    btn.innerText = 'Generate Receipt →';
   }
 });
 
-// ── Toast
+// Toast
 function showToast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
+  t.innerText = msg;
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3500);
+  setTimeout(() => t.classList.remove('show'), 3000);
 }
 </script>
+
 </body>
 </html>
