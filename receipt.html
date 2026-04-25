@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Receipt — SMT Receipt System</title>
+<link rel="stylesheet" href="style.css" />
+<!-- QR Code library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  @media print {
+    .site-header, .action-row, .no-print { display: none !important; }
+    body { background: #fff; }
+    .receipt-doc { box-shadow: none; border: 1px solid #ccc; }
+    .page-wrap { padding: 0; max-width: 100%; }
+  }
+
+  .receipt-doc { position: relative; overflow: hidden; }
+
+  /* Prevent selection on receipt body */
+  .receipt-body, .receipt-footer, .receipt-header {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="brand"><span>SMT</span> Receipt System</div>
+  <nav>
+    <a href="index.html">Admin</a>
+    <a href="verify.html">Verify</a>
+  </nav>
+</header>
+
+<div class="page-wrap">
+
+  <div class="action-row no-print" style="margin-bottom: 1.5rem;">
+    <button class="btn btn-outline" onclick="window.print()">🖨 Print</button>
+    <button class="btn btn-outline" onclick="copyVerifyLink()">🔗 Copy Verify Link</button>
+    <a href="index.html" class="btn btn-outline">+ New Receipt</a>
+    <a id="verifyBtn" href="#" class="btn btn-gold">✓ Verify This Receipt</a>
+  </div>
+
+  <!-- ── Receipt Document ── -->
+  <div class="receipt-doc" id="receiptDoc">
+
+    <div class="watermark">VERIFY AT SMT PORTAL</div>
+
+    <div class="receipt-header">
+      <div class="receipt-org-name"><span>SMT</span> Society</div>
+      <div class="receipt-tagline">Official Payment Receipt</div>
+      <div class="receipt-id-badge" id="rIdBadge">SMT-XXXX-0000-XXXX</div>
+    </div>
+
+    <div class="receipt-body">
+
+      <div class="receipt-status-bar">
+        <div class="status-dot"></div>
+        <span>VERIFIED — Stored in Database</span>
+        <span style="margin-left:auto; opacity:0.6; font-family:'DM Mono',monospace; font-size:0.75rem;">
+          Valid only after online verification
+        </span>
+      </div>
+
+      <div class="receipt-grid">
+
+        <div class="receipt-field wide">
+          <div class="receipt-field-label">Amount Paid</div>
+          <div class="receipt-field-value amount-value" id="rAmount">৳ 0.00</div>
+        </div>
+
+        <div class="receipt-field">
+          <div class="receipt-field-label">Member Name</div>
+          <div class="receipt-field-value" id="rName">—</div>
+        </div>
+
+        <div class="receipt-field">
+          <div class="receipt-field-label">Phone Number</div>
+          <div class="receipt-field-value" id="rPhone">—</div>
+        </div>
+
+        <div class="receipt-field">
+          <div class="receipt-field-label">Payment Method</div>
+          <div class="receipt-field-value" id="rMethod">—</div>
+        </div>
+
+        <div class="receipt-field">
+          <div class="receipt-field-label">Transaction ID</div>
+          <div class="receipt-field-value" id="rTxnId">N/A</div>
+        </div>
+
+        <div class="receipt-field">
+          <div class="receipt-field-label">Purpose</div>
+          <div class="receipt-field-value" id="rPurpose">—</div>
+        </div>
+
+        <div class="receipt-field">
+          <div class="receipt-field-label">Status</div>
+          <div class="receipt-field-value" style="color: var(--green); font-weight:600;">✓ VERIFIED</div>
+        </div>
+
+        <div class="receipt-field">
+          <div class="receipt-field-label">Date</div>
+          <div class="receipt-field-value" id="rDate">—</div>
+        </div>
+
+        <div class="receipt-field">
+          <div class="receipt-field-label">Time</div>
+          <div class="receipt-field-value" id="rTime">—</div>
+        </div>
+
+        <div class="receipt-field">
+          <div class="receipt-field-label">Receipt ID</div>
+          <div class="receipt-field-value" id="rId" style="font-family:'DM Mono',monospace; font-size:0.82rem;">—</div>
+        </div>
+
+        <div class="receipt-field">
+          <div class="receipt-field-label">Created By</div>
+          <div class="receipt-field-value" id="rCreatedBy">—</div>
+        </div>
+
+        <div class="receipt-field" id="rNotesField" style="display:none;">
+          <div class="receipt-field-label">Notes</div>
+          <div class="receipt-field-value" id="rNotes">—</div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="receipt-footer">
+      <div class="receipt-sig">
+        <div class="sig-line"></div>
+        <div class="sig-name" id="rSigName">Authorized Signatory</div>
+        <div class="sig-name" style="margin-top:0.15rem; opacity:0.6;">SMT Society</div>
+      </div>
+      <div class="receipt-qr">
+        <div id="qrcode"></div>
+        <div class="receipt-qr-label">Scan to Verify</div>
+      </div>
+    </div>
+
+    <div class="receipt-verify-notice">
+      ⚠ This receipt is only valid when verified online.
+      Visit: <strong id="verifyUrlDisplay">verify.html?id=...</strong>
+    </div>
+
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Load receipt data
+const raw = sessionStorage.getItem('smt_receipt');
+let receipt = null;
+
+if (raw) {
+  receipt = JSON.parse(raw);
+  populate(receipt);
+} else {
+  // Try URL param fallback (if navigated directly)
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id');
+  if (id) {
+    document.body.innerHTML = `<div style="padding:3rem; text-align:center;">
+      <p style="font-family:'DM Sans',sans-serif; color:#666;">
+        To view this receipt, use the <a href="verify.html?id=${encodeURIComponent(id)}">verification page</a>.
+      </p>
+    </div>`;
+  } else {
+    document.body.innerHTML = `<div style="padding:3rem; text-align:center;">
+      <p style="font-family:'DM Sans',sans-serif; color:#666;">No receipt data found. <a href="index.html">Go to Admin Panel</a></p>
+    </div>`;
+  }
+}
+
+function populate(r) {
+  const verifyUrl = `${location.origin}${location.pathname.replace('receipt.html','verify.html')}?id=${encodeURIComponent(r.receiptId)}`;
+
+  document.title = `Receipt ${r.receiptId} — SMT`;
+  document.getElementById('rIdBadge').textContent = r.receiptId;
+  document.getElementById('rAmount').textContent = `৳ ${Number(r.amount).toLocaleString('en-BD', {minimumFractionDigits: 2})}`;
+  document.getElementById('rName').textContent = r.memberName;
+  document.getElementById('rPhone').textContent = r.phone;
+  document.getElementById('rMethod').textContent = r.paymentMethod;
+  document.getElementById('rTxnId').textContent = r.transactionId || 'N/A';
+  document.getElementById('rPurpose').textContent = r.purpose;
+  document.getElementById('rDate').textContent = r.date;
+  document.getElementById('rTime').textContent = r.time;
+  document.getElementById('rId').textContent = r.receiptId;
+  document.getElementById('rCreatedBy').textContent = r.createdBy;
+  document.getElementById('rSigName').textContent = r.createdBy;
+
+  if (r.notes) {
+    document.getElementById('rNotesField').style.display = 'block';
+    document.getElementById('rNotes').textContent = r.notes;
+  }
+
+  document.getElementById('verifyUrlDisplay').textContent = verifyUrl;
+  document.getElementById('verifyBtn').href = verifyUrl;
+
+  // Generate QR code
+  new QRCode(document.getElementById('qrcode'), {
+    text: verifyUrl,
+    width: 90,
+    height: 90,
+    colorDark: '#0d0d0d',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+}
+
+function copyVerifyLink() {
+  if (!receipt) return;
+  const verifyUrl = `${location.origin}${location.pathname.replace('receipt.html','verify.html')}?id=${encodeURIComponent(receipt.receiptId)}`;
+  navigator.clipboard.writeText(verifyUrl).then(() => showToast('Verification link copied ✓'));
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Disable right-click on receipt
+document.getElementById('receiptDoc').addEventListener('contextmenu', e => e.preventDefault());
+</script>
+
+</body>
+</html>

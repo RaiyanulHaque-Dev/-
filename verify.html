@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Verify Receipt — SMT Receipt System</title>
+<link rel="stylesheet" href="style.css" />
+<style>
+  .verify-hero {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 2rem;
+    border-radius: 4px;
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .verify-hero::before {
+    content: '✓';
+    position: absolute;
+    right: 1.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: 'DM Serif Display', serif;
+    font-size: 6rem;
+    opacity: 0.06;
+    line-height: 1;
+  }
+
+  .verify-hero h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.6rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .verify-hero p {
+    font-size: 0.85rem;
+    opacity: 0.6;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .result-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  @media (max-width: 500px) { .result-detail-grid { grid-template-columns: 1fr; } }
+
+  .detail-item {
+    background: rgba(255,255,255,0.6);
+    padding: 0.75rem 1rem;
+    border-radius: 3px;
+    border: 1px solid rgba(0,0,0,0.08);
+  }
+
+  .detail-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 0.25rem;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .detail-value {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  .detail-item.wide { grid-column: 1 / -1; }
+
+  .amount-display {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.8rem;
+    color: var(--accent);
+  }
+
+  .verify-steps {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .step-num {
+    width: 22px; height: 22px;
+    background: var(--border);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    font-family: 'DM Mono', monospace;
+    flex-shrink: 0;
+  }
+
+  #loadingState {
+    text-align: center;
+    padding: 2rem;
+    display: none;
+  }
+
+  .big-spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto 1rem;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="brand"><span>SMT</span> Receipt System</div>
+  <nav>
+    <a href="index.html">Admin</a>
+    <a href="verify.html" class="active">Verify</a>
+  </nav>
+</header>
+
+<div class="page-wrap">
+
+  <div class="verify-hero">
+    <h2>Verify a Receipt</h2>
+    <p>// enter receipt ID to check authenticity against our database</p>
+  </div>
+
+  <!-- ── Setup config ── -->
+  <div class="card" style="margin-bottom:1.5rem;">
+    <p style="font-size:0.78rem; color:var(--muted); margin-bottom:0.5rem; font-family:'DM Mono',monospace; text-transform:uppercase; letter-spacing:0.08em;">
+      API Endpoint (required once)
+    </p>
+    <div class="config-row" style="display:flex; gap:0.75rem;">
+      <input type="url" id="apiUrl" placeholder="https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec"
+        style="flex:1; border:1.5px solid var(--border); border-radius:3px; padding:0.6rem 0.9rem; font-family:'DM Mono',monospace; font-size:0.82rem; background:var(--paper);" />
+      <button class="btn btn-outline" onclick="saveApiUrl()" style="white-space:nowrap;">Save</button>
+    </div>
+  </div>
+
+  <!-- ── Verify Form ── -->
+  <div class="card">
+    <label style="font-size:0.72rem; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); display:block; margin-bottom:0.5rem;">
+      Receipt ID
+    </label>
+    <div class="verify-input-wrap">
+      <input type="text" id="receiptIdInput" placeholder="SMT-2026-0000-XXXX"
+        oninput="this.value = this.value.toUpperCase()" />
+      <button class="btn btn-primary" id="verifyBtn" onclick="verify()">Verify →</button>
+    </div>
+
+    <div class="verify-steps">
+      <div class="step"><div class="step-num">1</div> Enter the Receipt ID shown on your receipt</div>
+      <div class="step"><div class="step-num">2</div> Click Verify</div>
+      <div class="step"><div class="step-num">3</div> See real-time result from database</div>
+    </div>
+  </div>
+
+  <!-- ── Loading ── -->
+  <div id="loadingState">
+    <div class="big-spinner"></div>
+    <p style="font-family:'DM Mono',monospace; font-size:0.85rem; color:var(--muted);">Checking database...</p>
+  </div>
+
+  <!-- ── Result ── -->
+  <div id="resultArea" style="margin-top:1.5rem;"></div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORAGE_KEY = 'smt_api_url';
+
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) document.getElementById('apiUrl').value = saved;
+
+  // Auto-fill from URL param
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id');
+  if (id) {
+    document.getElementById('receiptIdInput').value = id.toUpperCase();
+    verify();
+  }
+});
+
+function saveApiUrl() {
+  const url = document.getElementById('apiUrl').value.trim();
+  if (!url) return showToast('Please enter a valid URL');
+  localStorage.setItem(STORAGE_KEY, url);
+  showToast('API URL saved ✓');
+}
+
+// Allow Enter key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && document.getElementById('receiptIdInput') === document.activeElement) {
+    verify();
+  }
+});
+
+async function verify() {
+  const apiUrl = localStorage.getItem(STORAGE_KEY) || document.getElementById('apiUrl').value.trim();
+  if (!apiUrl) { showToast('⚠ Please save your API URL first'); return; }
+
+  const id = document.getElementById('receiptIdInput').value.trim().toUpperCase();
+  if (!id) { showToast('⚠ Please enter a Receipt ID'); return; }
+
+  const btn = document.getElementById('verifyBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  document.getElementById('loadingState').style.display = 'block';
+  document.getElementById('resultArea').innerHTML = '';
+
+  try {
+    const url = `${apiUrl}?action=verify&id=${encodeURIComponent(id)}`;
+    const res = await fetch(url);
+    const json = await res.json();
+
+    document.getElementById('loadingState').style.display = 'none';
+    btn.disabled = false;
+    btn.innerHTML = 'Verify →';
+
+    if (json.status === 'VALID') {
+      showValid(json.data);
+    } else {
+      showInvalid(id, json.message);
+    }
+  } catch (err) {
+    document.getElementById('loadingState').style.display = 'none';
+    btn.disabled = false;
+    btn.innerHTML = 'Verify →';
+    showError(err);
+  }
+}
+
+function showValid(d) {
+  const amt = Number(d.Amount).toLocaleString('en-BD', {minimumFractionDigits: 2});
+  document.getElementById('resultArea').innerHTML = `
+    <div class="result-valid">
+      <div class="result-badge badge-valid">✓ &nbsp;VALID RECEIPT</div>
+      <p style="font-size:0.85rem; color:var(--green); margin-bottom:1rem;">
+        This receipt is authentic and verified in the SMT database.
+      </p>
+      <div class="result-detail-grid">
+        <div class="detail-item wide">
+          <div class="detail-label">Amount Paid</div>
+          <div class="amount-display">৳ ${amt}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Member Name</div>
+          <div class="detail-value">${esc(d.MemberName)}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Phone</div>
+          <div class="detail-value">${esc(d.Phone)}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Receipt ID</div>
+          <div class="detail-value" style="font-family:'DM Mono',monospace; font-size:0.82rem;">${esc(d.ReceiptID)}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Purpose</div>
+          <div class="detail-value">${esc(d.Purpose)}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Payment Method</div>
+          <div class="detail-value">${esc(d.PaymentMethod)}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Transaction ID</div>
+          <div class="detail-value" style="font-family:'DM Mono',monospace;">${esc(d.TransactionID)}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Date & Time</div>
+          <div class="detail-value">${esc(d.Date)} &nbsp;·&nbsp; ${esc(d.Time)}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Status</div>
+          <div class="detail-value" style="color:var(--green); font-weight:700;">${esc(d.Status)}</div>
+        </div>
+        <div class="detail-item">
+          <div class="detail-label">Created By</div>
+          <div class="detail-value">${esc(d.CreatedBy)}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function showInvalid(id, msg) {
+  document.getElementById('resultArea').innerHTML = `
+    <div class="result-invalid">
+      <div class="result-badge badge-invalid">✗ &nbsp;INVALID RECEIPT</div>
+      <p style="font-size:0.9rem; font-weight:600; color:var(--red); margin-bottom:0.5rem;">
+        Receipt ID &ldquo;${esc(id)}&rdquo; was not found in the database.
+      </p>
+      <p style="font-size:0.85rem; color:#8b3a3a;">
+        This receipt does not exist, may have been fabricated, or the ID was entered incorrectly.
+        Do not accept this as valid proof of payment.
+      </p>
+      ${msg ? `<p style="font-size:0.78rem; color:var(--muted); margin-top:0.75rem; font-family:'DM Mono',monospace;">${esc(msg)}</p>` : ''}
+    </div>
+  `;
+}
+
+function showError(err) {
+  document.getElementById('resultArea').innerHTML = `
+    <div class="alert alert-warning">
+      <strong>⚠ Connection Error</strong><br/>
+      Could not reach the database. Check your API URL or internet connection.
+      <br/><small style="font-family:'DM Mono',monospace; opacity:0.7;">${err.message}</small>
+    </div>
+  `;
+}
+
+function esc(s) {
+  if (!s) return '—';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+</script>
+
+</body>
+</html>
